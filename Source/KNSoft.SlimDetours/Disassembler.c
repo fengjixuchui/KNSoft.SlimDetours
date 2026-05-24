@@ -171,6 +171,7 @@ static PBYTE Copy0F00(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry,
 static PBYTE Copy0FB8(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry, _In_ PBYTE pbDst, _In_ PBYTE pbSrc);
 static PBYTE Copy66(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry, _In_ PBYTE pbDst, _In_ PBYTE pbSrc);
 static PBYTE Copy67(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry, _In_ PBYTE pbDst, _In_ PBYTE pbSrc);
+static PBYTE CopyC7(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry, _In_ PBYTE pbDst, _In_ PBYTE pbSrc);
 static PBYTE CopyF2(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry, _In_ PBYTE pbDst, _In_ PBYTE pbSrc);
 static PBYTE CopyF3(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry, _In_ PBYTE pbDst, _In_ PBYTE pbSrc);
 static PBYTE CopyF6(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry, _In_ PBYTE pbDst, _In_ PBYTE pbSrc);
@@ -240,6 +241,7 @@ enum
     eENTRY_Copy0FB8,
     eENTRY_Copy66,
     eENTRY_Copy67,
+    eENTRY_CopyC7,
     eENTRY_CopyF6,
     eENTRY_CopyF7,
     eENTRY_CopyFF,
@@ -301,6 +303,7 @@ static const COPYENTRY g_rceCopyMap[] =
     /* eENTRY_Copy0FB8 */              { ENTRY_DataIgnored Copy0FB8 }, // 32bit x86 only
     /* eENTRY_Copy66 */                { ENTRY_DataIgnored Copy66 },
     /* eENTRY_Copy67 */                { ENTRY_DataIgnored Copy67 },
+    /* eENTRY_CopyC7 */                { ENTRY_DataIgnored CopyC7 },
     /* eENTRY_CopyF6 */                { ENTRY_DataIgnored CopyF6 },
     /* eENTRY_CopyF7 */                { ENTRY_DataIgnored CopyF7 },
     /* eENTRY_CopyFF */                { ENTRY_DataIgnored CopyFF },
@@ -583,7 +586,7 @@ static const BYTE g_rceCopyTable[] =
     /* C4 */ eENTRY_CopyVex3,                       // LES, VEX 3-byte opcodes.
     /* C5 */ eENTRY_CopyVex2,                       // LDS, VEX 2-byte opcodes.
     /* C6 */ eENTRY_CopyBytes2Mod1,                 // MOV
-    /* C7 */ eENTRY_CopyBytes2ModOperand,           // MOV/0 XBEGIN/7
+    /* C7 */ eENTRY_CopyC7,                         // MOV/0 XBEGIN
     /* C8 */ eENTRY_CopyBytes4,                     // ENTER
     /* C9 */ eENTRY_CopyBytes1,                     // LEAVE
     /* CA */ eENTRY_CopyBytes3Dynamic,              // RET
@@ -1468,6 +1471,29 @@ CopyF7(
         // NEG /3
         // NOT /2
         REFCOPYENTRY ce = /* f7 */ &g_rceCopyMap[eENTRY_CopyBytes2Mod];
+        return ce->pfCopy(pDisasm, ce, pbDst, pbSrc);
+    }
+}
+
+static
+PBYTE
+CopyC7(
+    _In_ PDETOUR_DISASM pDisasm,
+    _In_opt_ REFCOPYENTRY pEntry,
+    _In_ PBYTE pbDst,
+    _In_ PBYTE pbSrc)
+{
+    UNREFERENCED_PARAMETER(pEntry);
+
+    if (pbSrc[1] == 0xF8)
+    {
+        // XBEGIN rel32 (or rel16 with 66 prefix).
+        COPYENTRY ce = { 6, 4, 0, 2, 0, CopyBytes };
+        return ce.pfCopy(pDisasm, &ce, pbDst, pbSrc);
+    } else
+    {
+        // MOV /0 r/m, imm16/32
+        REFCOPYENTRY ce = /* c7 /0 */ &g_rceCopyMap[eENTRY_CopyBytes2ModOperand];
         return ce->pfCopy(pDisasm, ce, pbDst, pbSrc);
     }
 }
