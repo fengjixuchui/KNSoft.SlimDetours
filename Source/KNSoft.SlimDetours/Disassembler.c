@@ -1424,10 +1424,10 @@ CopyF6(
 {
     UNREFERENCED_PARAMETER(pEntry);
 
-    // TEST BYTE /0
-    if (0x00 == (0x38 & pbSrc[1]))
+    // TEST BYTE /0 and /1 (/1 is an undocumented alias of /0).
+    if (0x00 == (0x30 & pbSrc[1]))
     {
-        // reg(bits 543) of ModR/M == 0
+        // reg(bits 543) of ModR/M == 000 or 001
         REFCOPYENTRY ce = /* f6 */ &g_rceCopyMap[eENTRY_CopyBytes2Mod1];
         return ce->pfCopy(pDisasm, ce, pbDst, pbSrc);
     } else
@@ -1453,10 +1453,10 @@ CopyF7(
 {
     UNREFERENCED_PARAMETER(pEntry);
 
-    // TEST WORD /0
-    if (0x00 == (0x38 & pbSrc[1]))
+    // TEST WORD /0 and /1 (see CopyF6 for /1 rationale).
+    if (0x00 == (0x30 & pbSrc[1]))
     {
-        // reg(bits 543) of ModR/M == 0
+        // reg(bits 543) of ModR/M == 000 or 001
         REFCOPYENTRY ce = /* f7 */ &g_rceCopyMap[eENTRY_CopyBytes2ModOperand];
         return ce->pfCopy(pDisasm, ce, pbDst, pbSrc);
     } else
