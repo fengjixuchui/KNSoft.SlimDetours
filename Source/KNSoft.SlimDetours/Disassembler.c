@@ -88,6 +88,7 @@ typedef struct _DETOUR_DISASM
     BOOL    bRaxOverride; // AMD64 only
     BOOL    bVex;
     BOOL    bEvex;
+    BOOL    bEvexMap4;
     BOOL    bF2;
     BOOL    bF3; // x86 only
     BYTE    nSegmentOverride;
@@ -114,6 +115,7 @@ detour_disasm_init(
     pDisasm->bF3 = FALSE;
     pDisasm->bVex = FALSE;
     pDisasm->bEvex = FALSE;
+    pDisasm->bEvexMap4 = FALSE;
 
     pDisasm->ppbTarget = ppbTarget ? ppbTarget : &pDisasm->pbScratchTarget;
     pDisasm->plExtra = plExtra ? plExtra : &pDisasm->lScratchExtra;
@@ -1099,7 +1101,7 @@ CopyBytes(
 {
     UINT nBytesFixed;
 
-    if (pDisasm->bVex || pDisasm->bEvex)
+    if ((pDisasm->bVex || pDisasm->bEvex) && !pDisasm->bEvexMap4)
     {
         ASSERT(pEntry->nFlagBits == 0);
         ASSERT(pEntry->nFixedSize == pEntry->nFixedSize16);
@@ -1121,6 +1123,12 @@ CopyBytes(
         nBytesFixed = nFixedSize + ((nFlagBits & RAX) ? 4 : 0);
     }
 #endif
+    else if ((pDisasm->bVex || pDisasm->bEvex) && !pDisasm->bEvexMap4)
+    {
+        // For non-MAP4 VEX/EVEX instructions, pp is a mandatory prefix and
+        // does not shrink immediates to 16-bit.
+        nBytesFixed = nFixedSize;
+    }
     else
     {
         nBytesFixed = pDisasm->bOperandOverride ? nFixedSize16 : nFixedSize;
@@ -1585,17 +1593,27 @@ CopyVexEvexCommon(
     }
 
     // see https://software.intel.com/content/www/us/en/develop/download/intel-avx512-fp16-architecture-specification.html
+    // EVEX maps (with FP16 and APX mmm-bit extension):
+    //   mmm=001 (MAP1) and mmm=101 (MAP5) share the legacy 0F opcode structure,
+    //     so per-opcode sizing must come from g_rceCopyTable0F (e.g. MAP5 C2 /r ib = VCMPPH/VCMPSH).
+    //   mmm=010 (MAP2) and mmm=110 (MAP6) share the legacy 0F 38 structure (ModR/M, no imm).
+    //   mmm=011 (MAP3) has the 0F 3A structure (ModR/M + imm8).
+    //   mmm=100 (MAP4, APX) mirrors legacy MAP0 opcode structure (per-opcode sizing).
     switch (m | fp16)
     {
+        case 5:
         case 1:
             ce = &g_rceCopyMap[g_rceCopyTable0F[pbSrc[0]]];
             return ce->pfCopy(pDisasm, ce, pbDst, pbSrc);
-        case 5: // fallthrough
-        case 6: // fallthrough
+        case 6:
         case 2:
             return CopyBytes(pDisasm, &g_rceCopyMap[eENTRY_CopyBytes2Mod], pbDst, pbSrc); /* 38 ceF38 */
         case 3:
             return CopyBytes(pDisasm, &g_rceCopyMap[eENTRY_CopyBytes2Mod1], pbDst, pbSrc); /* 3A ceF3A */
+        case 4:
+            pDisasm->bEvexMap4 = pDisasm->bEvex;
+            ce = &g_rceCopyMap[g_rceCopyTable[pbSrc[0]]];
+            return ce->pfCopy(pDisasm, ce, pbDst, pbSrc);
         default:
             return Invalid(pDisasm, &g_rceCopyMap[eENTRY_Invalid], pbDst, pbSrc); /* C4 ceInvalid */
     }
@@ -1711,11 +1729,6 @@ CopyEvex(
     }
 #endif
 
-    // This could also be handled by default in CopyVexEvexCommon
-    // if 4u changed to 4|8.
-    if (p0 & 8u)
-        return Invalid(pDisasm, &g_rceCopyMap[eENTRY_Invalid], pbDst, pbSrc); /* 62 ceInvalid */
-
     BYTE const p1 = pbSrc[2];
 
     if ((p1 & 0x04) != 0x04)
@@ -1730,6 +1743,10 @@ CopyEvex(
     pDisasm->bRaxOverride |= !!(p1 & 0x80); // w
 #endif
 
+    // P0 layout: R'(7) X(6) B3(5) R'4(4) B4(3) m(2) m(1) m(0)
+    // Bits [2:0] = map (1-7). Bit 3 = B4 (APX register extension, not a map bit).
+    // For FP16: bit 2 extends map (MAP5=101, MAP6=110).
+    // For APX:  map=4 (100) uses bit 2 as part of mmm field.
     return CopyVexEvexCommon(pDisasm, p0 & 3u, pbDst + 4, pbSrc + 4, p1 & 3u, p0 & 4u);
 }
 
