@@ -181,6 +181,7 @@ static PBYTE CopyVex3(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry,
 static PBYTE CopyVex2(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry, _In_ PBYTE pbDst, _In_ PBYTE pbSrc);
 static PBYTE CopyEvex(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry, _In_ PBYTE pbDst, _In_ PBYTE pbSrc);
 static PBYTE CopyXop(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry, _In_ PBYTE pbDst, _In_ PBYTE pbSrc);
+static PBYTE CopyRex2(_In_ PDETOUR_DISASM pDisasm, _In_opt_ REFCOPYENTRY pEntry, _In_ PBYTE pbDst, _In_ PBYTE pbSrc);
 
 ///////////////////////////////////////////////////////// Disassembler Tables.
 //
@@ -249,6 +250,7 @@ enum
     eENTRY_CopyVex3,
     eENTRY_CopyEvex,
     eENTRY_CopyXop,
+    eENTRY_CopyRex2,
     eENTRY_CopyBytesXop,
     eENTRY_CopyBytesXop1,
     eENTRY_CopyBytesXop4,
@@ -311,6 +313,7 @@ static const COPYENTRY g_rceCopyMap[] =
     /* eENTRY_CopyVex3 */              { ENTRY_DataIgnored CopyVex3 },
     /* eENTRY_CopyEvex */              { ENTRY_DataIgnored CopyEvex }, // 62, 3 byte payload, then normal with implied prefixes like vex
     /* eENTRY_CopyXop */               { ENTRY_DataIgnored CopyXop }, // 0x8F ... POP /0 or AMD XOP
+    /* eENTRY_CopyRex2 */              { ENTRY_DataIgnored CopyRex2 }, // 0xD5 Intel APX REX2 (x64 only)
     /* eENTRY_CopyBytesXop */          { 5, 5, 4, 0, 0, CopyBytes }, // 0x8F xop1 xop2 opcode modrm
     /* eENTRY_CopyBytesXop1 */         { 6, 6, 4, 0, 0, CopyBytes }, // 0x8F xop1 xop2 opcode modrm ... imm8
     /* eENTRY_CopyBytesXop4 */         { 9, 9, 4, 0, 0, CopyBytes }, // 0x8F xop1 xop2 opcode modrm ... imm32
@@ -605,7 +608,7 @@ static const BYTE g_rceCopyTable[] =
     /* D3 */ eENTRY_CopyBytes2Mod,                  // RCL/2, etc.
 #if defined(_AMD64_)
     /* D4 */ eENTRY_Invalid,                        // Invalid
-    /* D5 */ eENTRY_Invalid,                        // Invalid
+    /* D5 */ eENTRY_CopyRex2,                       // REX2 (Intel APX)
 #else
     /* D4 */ eENTRY_CopyBytes2,                     // AAM
     /* D5 */ eENTRY_CopyBytes2,                     // AAD
@@ -1765,6 +1768,52 @@ pp is like VEX but only instructions with 0 are defined
         default:
             return CopyBytes(pDisasm, &g_rceCopyMap[eENTRY_CopyBytes2Mod], pbDst, pbSrc); /* 8F cePop */
     }
+}
+
+static
+PBYTE
+CopyRex2(
+    _In_ PDETOUR_DISASM pDisasm,
+    _In_opt_ REFCOPYENTRY pEntry,
+    _In_ PBYTE pbDst,
+    _In_ PBYTE pbSrc)
+// Intel APX REX2 prefix 0xD5 (64-bit mode only)
+// Byte 0: D5
+// Byte 1: M(7) R4(6) X4(5) B4(4) W(3) R3(2) X3(1) B3(0)
+//   M: 0 = opcode from MAP0, 1 = opcode from MAP1 (no 0F escape needed)
+//   W: operand size override to 64-bit (same as REX.W)
+{
+    UNREFERENCED_PARAMETER(pEntry);
+
+    BYTE const payload = pbSrc[1];
+
+    if (payload & 0x08)
+    {
+        pDisasm->bRaxOverride = TRUE;
+    }
+
+    pbDst[0] = pbSrc[0];
+    pbDst[1] = pbSrc[1];
+
+    PBYTE pbOut;
+    if (payload & 0x80)
+    {
+        REFCOPYENTRY ce = &g_rceCopyMap[g_rceCopyTable0F[pbSrc[2]]];
+        pbOut = ce->pfCopy(pDisasm, ce, pbDst + 2, pbSrc + 2);
+    } else
+    {
+        REFCOPYENTRY ce = &g_rceCopyMap[g_rceCopyTable[pbSrc[2]]];
+        pbOut = ce->pfCopy(pDisasm, ce, pbDst + 2, pbSrc + 2);
+    }
+
+    // JMPABS: REX2 with M=0, W=0, and opcode A1. Other payload bits are ignored.
+    // This is an absolute 64-bit jump whose target is the 8-byte immediate.
+    if ((payload & 0x88) == 0x00 && pbSrc[2] == 0xA1)
+    {
+        *pDisasm->ppbTarget = *(UNALIGNED PBYTE*) & pbSrc[3];
+    }
+
+    return pbOut;
 }
 
 #endif // defined(_AMD64_) || defined(_X86_)
