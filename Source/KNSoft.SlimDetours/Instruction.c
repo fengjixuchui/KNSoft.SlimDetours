@@ -177,6 +177,37 @@ detour_is_jmp_indirect_to(
 #endif
 }
 
+static
+BOOL
+detour_decode_jmp_indirect(
+    _In_ PBYTE pbCode,
+    _Out_ PBYTE* ppbTarget)
+{
+#if defined(_AMD64_)
+    ULONG cbPrefix = 0;
+
+    if ((pbCode[0] & 0xf0) == 0x40)
+    {
+        cbPrefix = 1;
+    }
+
+    if (pbCode[cbPrefix] != 0xff || pbCode[cbPrefix + 1] != 0x25)
+    {
+        return FALSE;
+    }
+
+    *ppbTarget = pbCode + cbPrefix + 6 + *(UNALIGNED INT32*) & pbCode[cbPrefix + 2];
+#else
+    if (pbCode[0] != 0xff || pbCode[1] != 0x25)
+    {
+        return FALSE;
+    }
+
+    *ppbTarget = *(UNALIGNED PBYTE*) & pbCode[2];
+#endif
+    return TRUE;
+}
+
 _Ret_notnull_
 PBYTE
 detour_gen_brk(
@@ -196,19 +227,12 @@ detour_skip_jmp(
     _In_ PBYTE pbCode)
 {
     PBYTE pbCodeOriginal;
+    PBYTE pbTarget;
 
     // First, skip over the import vector if there is one.
-    if (pbCode[0] == 0xff && pbCode[1] == 0x25)
+    if (detour_decode_jmp_indirect(pbCode, &pbTarget))
     {
         // Looks like an import alias jump, then get the code it points to.
-#if defined(_X86_)
-        // jmp [imm32]
-        PBYTE pbTarget = *(UNALIGNED PBYTE*) & pbCode[2];
-#else
-        // jmp [+imm32]
-        PBYTE pbTarget = pbCode + 6 + *(UNALIGNED INT32*) & pbCode[2];
-#endif
-
         if (detour_is_imported(pbCode, pbTarget))
         {
             PBYTE pbNew = *(UNALIGNED PBYTE*)pbTarget;
@@ -227,16 +251,9 @@ detour_skip_jmp(
         pbCodeOriginal = pbCode;
 
         // First, skip over the import vector if there is one.
-        if (pbCode[0] == 0xff && pbCode[1] == 0x25)
+        if (detour_decode_jmp_indirect(pbCode, &pbTarget))
         {
             // Looks like an import alias jump, then get the code it points to.
-#if defined(_X86_)
-            // jmp [imm32]
-            PBYTE pbTarget = *(UNALIGNED PBYTE*) & pbCode[2];
-#else
-            // jmp [+imm32]
-            PBYTE pbTarget = pbCode + 6 + *(UNALIGNED INT32*) & pbCode[2];
-#endif
             if (detour_is_imported(pbCode, pbTarget))
             {
                 pbNew = *(UNALIGNED PBYTE*)pbTarget;
@@ -255,7 +272,7 @@ detour_skip_jmp(
             // Patches applied by the OS will jump through an HPAT page to get
             // the target function in the patch image. The jump is always performed
             // to the target function found at the current instruction pointer + PAGE_SIZE - 6 (size of jump).
-            // If this is an OS patch, we want to detour at the point of the target function in the base image. 
+            // If this is an OS patch, we want to detour at the point of the target function in the base image.
             if (pbCode[0] == 0xff &&
                 pbCode[1] == 0x25 &&
 #if defined(_X86_)
@@ -289,6 +306,9 @@ detour_find_jmp_bounds(
     // We have to place trampolines within +/- 2GB of code.
     PVOID lo = detour_memory_2gb_below(pbCode);
     PVOID hi = detour_memory_2gb_above(pbCode);
+#if defined(_AMD64_)
+    PBYTE pbJmpTarget;
+#endif
     DETOUR_TRACE("[%p..%p..%p]\n", lo, pbCode, hi);
 
     // And, within +/- 2GB of relative jmp targets.
@@ -308,17 +328,15 @@ detour_find_jmp_bounds(
     }
 #if defined(_AMD64_)
     // And, within +/- 2GB of relative jmp vectors.
-    else if (pbCode[0] == 0xff && pbCode[1] == 0x25)
+    else if (detour_decode_jmp_indirect(pbCode, &pbJmpTarget))
     {
         // jmp [+imm32]
-        PBYTE pbNew = pbCode + 6 + *(UNALIGNED INT32*) & pbCode[2];
-
-        if (pbNew < pbCode)
+        if (pbJmpTarget < pbCode)
         {
-            hi = detour_memory_2gb_above(pbNew);
+            hi = detour_memory_2gb_above(pbJmpTarget);
         } else
         {
-            lo = detour_memory_2gb_below(pbNew);
+            lo = detour_memory_2gb_below(pbJmpTarget);
         }
         DETOUR_TRACE("[%p..%p..%p] [+imm32]\n", lo, pbCode, hi);
     }
@@ -332,6 +350,8 @@ BOOL
 detour_does_code_end_function(
     _In_ PBYTE pbCode)
 {
+    PBYTE pbTarget;
+
     if (pbCode[0] == 0xeb ||    // jmp +imm8
         pbCode[0] == 0xe9 ||    // jmp +imm32
         pbCode[0] == 0xe0 ||    // jmp eax
@@ -345,7 +365,7 @@ detour_does_code_end_function(
     {
         // rep ret
         return TRUE;
-    } else if (pbCode[0] == 0xff && pbCode[1] == 0x25)
+    } else if (detour_decode_jmp_indirect(pbCode, &pbTarget))
     {
         // jmp [+imm32]
         return TRUE;
