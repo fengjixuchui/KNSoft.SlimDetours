@@ -7,6 +7,7 @@
     <ClCompile Include="TwiceSimpleHook.c" />
     <ClCompile Include="Instruction.c" />
     <ClCompile Include="COMHook.c" />
+    <ClCompile Include="OutputDebugStringHook.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Demo.h" />

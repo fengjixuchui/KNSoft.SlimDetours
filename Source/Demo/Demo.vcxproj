@@ -195,6 +195,7 @@
     <ClCompile Include="DelayHook.c" />
     <ClCompile Include="Instruction.c" />
     <ClCompile Include="Main.c" />
+    <ClCompile Include="OutputDebugStringHook.c" />
     <ClCompile Include="TwiceSimpleHook.c" />
   </ItemGroup>
   <ItemGroup>

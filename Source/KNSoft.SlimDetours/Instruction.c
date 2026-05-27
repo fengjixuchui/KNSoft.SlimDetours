@@ -178,6 +178,7 @@ detour_is_jmp_indirect_to(
 }
 
 static
+_Success_(return != FALSE)
 BOOL
 detour_decode_jmp_indirect(
     _In_ PBYTE pbCode,

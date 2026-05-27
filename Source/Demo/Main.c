@@ -4,6 +4,7 @@
 
 /* Manual demos */
 TEST_DECL_FUNC(DeadLock);
+TEST_DECL_FUNC(OutputDebugStringHook);
 
 /* Auto tests */
 TEST_DECL_FUNC(COMHook);
@@ -15,6 +16,9 @@ TEST_DECL_FUNC(DelayHook);
 
 CONST UNITTEST_ENTRY UnitTestList[] = {
     TEST_DECL_MANUAL_ENTRY(DeadLock),
+#if defined(_AMD64_) || defined(_ARM64_)
+    TEST_DECL_MANUAL_ENTRY(OutputDebugStringHook),
+#endif
 
     TEST_DECL_ENTRY(COMHook),
     TEST_DECL_ENTRY(TwiceSimpleHook),

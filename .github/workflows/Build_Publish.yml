@@ -33,6 +33,10 @@ jobs:
       run: |
         .\Source\OutDir\${{matrix.platform}}\${{matrix.config}}\Demo.exe -Run
         .\Source\OutDir\${{matrix.platform}}\${{matrix.config}}\Demo.exe -Run DeadLock -Engine=SlimDetours
+    - name: Run OutputDebugStringHook Test [x64/ARM64]
+      if: ${{(matrix.os == 'windows-latest' && matrix.platform == 'x64') || (matrix.os == 'windows-11-arm' && matrix.platform == 'ARM64')}}
+      run: |
+        .\Source\OutDir\${{matrix.platform}}\${{matrix.config}}\Demo.exe -Run OutputDebugStringHook -Engine=SlimDetours
     - name: Build [NT5, x64/x86]
       if: ${{ matrix.platform == 'x64' || matrix.platform == 'x86' }}
       run: |
@@ -43,6 +47,10 @@ jobs:
       run: |
         .\Source\OutDir\${{matrix.platform}}\${{matrix.config}}\Demo.exe -Run
         .\Source\OutDir\${{matrix.platform}}\${{matrix.config}}\Demo.exe -Run DeadLock -Engine=SlimDetours
+    - name: Run OutputDebugStringHook Test [NT5, x64]
+      if: ${{ matrix.os == 'windows-latest' && matrix.platform == 'x64' }}
+      run: |
+        .\Source\OutDir\${{matrix.platform}}\${{matrix.config}}\Demo.exe -Run OutputDebugStringHook -Engine=SlimDetours
   Publish:
     if: ${{github.base_ref == '' && startsWith(github.event.head_commit.message, '[VERSION] ')}}
     needs: Build
@@ -76,10 +84,12 @@ jobs:
       run: |
         .\Source\OutDir\x64\Release\Demo.exe -Run
         .\Source\OutDir\x64\Release\Demo.exe -Run DeadLock -Engine=SlimDetours
+        .\Source\OutDir\x64\Release\Demo.exe -Run OutputDebugStringHook -Engine=SlimDetours
         .\Source\OutDir\x86\Release\Demo.exe -Run
         .\Source\OutDir\x86\Release\Demo.exe -Run DeadLock -Engine=SlimDetours
         .\Source\OutDir\x64\Debug\Demo.exe -Run
         .\Source\OutDir\x64\Debug\Demo.exe -Run DeadLock -Engine=SlimDetours
+        .\Source\OutDir\x64\Debug\Demo.exe -Run OutputDebugStringHook -Engine=SlimDetours
         .\Source\OutDir\x86\Debug\Demo.exe -Run
         .\Source\OutDir\x86\Debug\Demo.exe -Run DeadLock -Engine=SlimDetours
     - name: Create NuGet package
