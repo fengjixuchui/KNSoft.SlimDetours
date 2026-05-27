@@ -722,6 +722,27 @@ then unsigned size-unscaled (8) 12-bit offset, then opcode bits 0xF94.
             }
         }
     }
+
+    // Skip over a branch to the import jump if there is one.
+    if ((Opcode & 0xfc000000) == 0x14000000)
+    {
+        // B <imm26>
+        INT64 const branchOffset = detour_sign_extend((Opcode & 0x03ffffff) << 2, 28);
+        PBYTE const pbBranchTarget = pbCode + branchOffset;
+        ULONG const BranchOpcode = fetch_opcode(pbBranchTarget);
+
+        if ((BranchOpcode & 0x9f00001f) == 0x90000010)
+        {
+            PBYTE const pbNew = detour_skip_jmp(pbBranchTarget);
+
+            if (pbNew != pbBranchTarget)
+            {
+                DETOUR_TRACE("%p->%p: skipped over branch to import table.\n", pbCode, pbNew);
+                return pbNew;
+            }
+        }
+    }
+
     return pbCode;
 }
 
