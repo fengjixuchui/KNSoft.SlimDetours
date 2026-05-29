@@ -4,18 +4,18 @@
 
 &nbsp;
 
-# Avoid Deadlocking on The Heap When Updating Threads
+# Avoid Heap Deadlocks When Updating Threads
 
-## Why does Detours may deadlock when updating threads?
+## Why can Detours deadlock when updating threads?
 
-The original [Detours](https://github.com/microsoft/Detours) uses the CRT heap (via `new/delete`), and if another thread that also uses this heap and is holding the heap lock is suspended while updating threads, then [Detours](https://github.com/microsoft/Detours) will deadlock when it accesses the heap.
+The original [Detours](https://github.com/microsoft/Detours) uses the CRT heap (via `new/delete`). If thread updating suspends another thread that also uses this heap while it is holding the heap lock, [Detours](https://github.com/microsoft/Detours) will deadlock when it accesses the heap again.
 
-[Raymond Chen](https://devblogs.microsoft.com/oldnewthing/author/oldnewthing) discussed the problem that CRT heap deadlocks when suspending threads in [blog "The Old New Thing"](https://devblogs.microsoft.com/oldnewthing/) article ["Are there alternatives to _lock and _unlock in Visual Studio 2015?"](https://devblogs.microsoft.com/oldnewthing/20170125-00/?p=95255) is the same scenario, and also mentions [Detours](https://github.com/microsoft/Detours), here quotes the original text and will not go into details:
+[Raymond Chen](https://devblogs.microsoft.com/oldnewthing/author/oldnewthing) discusses the same CRT heap deadlock scenario caused by suspending threads in his [blog "The Old New Thing"](https://devblogs.microsoft.com/oldnewthing/) article ["Are there alternatives to _lock and _unlock in Visual Studio 2015?"](https://devblogs.microsoft.com/oldnewthing/20170125-00/?p=95255). The article also mentions [Detours](https://github.com/microsoft/Detours), so the original text is quoted here without further elaboration:
 > Furthermore, you would be best served to take the heap lock (Heap­Lock) before suspending the thread, because the Detours library will allocate memory during thread suspension.
 
 ## Demo of Detours Deadlock
 
-[SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours) provides [Demo: DeadLock](../../../Source/Demo/DeadLock.c) to demonstrate the occurrence of a deadlock in [Detours](https://github.com/microsoft/Detours) and the resolution in [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours).
+[SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours) provides [Demo: DeadLock](../../../Source/Demo/DeadLock.c) to demonstrate how a deadlock occurs in [Detours](https://github.com/microsoft/Detours) and how [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours) resolves it.
 
 One of the threads (`HeapUserThread`) keeps calling `malloc/free` (equivalent to `new/delete`):
 ```C
@@ -29,7 +29,7 @@ One of the threads (`HeapUserThread`) keeps calling `malloc/free` (equivalent to
  }
 ```
 
-Another thread (`SetHookThread`) uses [Detours](https://github.com/microsoft/Detours) or [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours) constantly hook and unhook:
+Another thread (`SetHookThread`) repeatedly hooks and unhooks using [Detours](https://github.com/microsoft/Detours) or [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours):
 ```C
 while (!g_bStop)
 {
@@ -64,7 +64,7 @@ while (!g_bStop)
 > [!NOTE]
 > [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours) updates threads automatically (see [🔗 TechWiki: Update Threads Automatically When Applying Inline Hooks](https://github.com/KNSoft/KNSoft.SlimDetours/blob/main/Docs/TechWiki/Update%20Threads%20Automatically%20When%20Applying%20Inline%20Hooks/README.md)), so there is no such function as [`DetourUpdateThread`](https://github.com/microsoft/Detours/wiki/DetourUpdateThread).
 
-Execute these 2 threads at the same time for 10 seconds, then send a stop signal (`g_bStop = TRUE;`) and wait 10 seconds again, if it times out, there is a high probability that a deadlock is occurred, a breakpoint will be triggered, and you can observe the call stack of these 2 threads in the debugger for confirmation. For example, if you specify to run this demo with [Detours](https://github.com/microsoft/Detours) `"Demo.exe -Run DeadLock -Engine=MSDetours"`, the following call stack will see a heap deadlock:
+Run these two threads at the same time for 10 seconds, then send a stop signal (`g_bStop = TRUE;`) and wait for another 10 seconds. If the wait times out, a deadlock has most likely occurred, a breakpoint will be triggered, and you can inspect the call stacks of these two threads in the debugger to confirm it. For example, if you run this demo with [Detours](https://github.com/microsoft/Detours) by specifying `"Demo.exe -Run DeadLock -Engine=MSDetours"`, the following call stacks show a heap deadlock:
 ```C
 Worker Thread	Demo.exe!HeapUserThread	Demo.exe!heap_alloc_dbg_internal
     [External Code]
@@ -88,20 +88,20 @@ Worker Thread	Demo.exe!SetHookThread	Demo.exe!__acrt_lock
     Demo.exe!SetHookThread(void * lpThreadParameter) Line 65
     [External Code]
 ```
-Use [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours) run this demo `"Demo.exe -Run DeadLock -Engine=SlimDetours"` will pass successfully.
+Running this demo with [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours) by specifying `"Demo.exe -Run DeadLock -Engine=SlimDetours"` will pass successfully.
 
 ## How did other hooking libraries avoid this problem?
 
-[mhook](https://github.com/martona/mhook) uses [`Virtual­Alloc`](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc) to allocate memory pages instead of [`Heap­Alloc`](https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapalloc) to allocate heap memory, which is a solution mentioned at the end of the above article.
+[mhook](https://github.com/martona/mhook) uses [`Virtual­Alloc`](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc) to allocate memory pages instead of using [`Heap­Alloc`](https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapalloc) to allocate heap memory. This is one solution mentioned at the end of the article above.
 
-Both of [MinHook](https://github.com/TsudaKageyu/minhook) and [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours) created a new private heap for internal use, which avoids this problem and saves memory usage:
+Both [MinHook](https://github.com/TsudaKageyu/minhook) and [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours) create a private heap for internal use, which avoids this problem and saves memory:
 ```C
 _detour_memory_heap = RtlCreateHeap(HEAP_NO_SERIALIZE | HEAP_GROWABLE, NULL, 0, 0, NULL, NULL);
 ```
 > [!NOTE]
 > [Detours](https://github.com/microsoft/Detours) already has a transaction mechanism, so this heap does not need serialized access.
 
-[MinHook](https://github.com/TsudaKageyu/minhook) creates in its initialization function `MH_Initialize`, and [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours) creates in one-time initialization in the first called memory allocation function, so there is no and no need for a separate initialization function.
+[MinHook](https://github.com/TsudaKageyu/minhook) creates this heap in its initialization function `MH_Initialize`, while [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours) creates it via one-time initialization in the first memory allocation function that is called. Therefore, [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours) has no separate initialization function and does not need one.
 
 <br>
 <hr>

@@ -15,7 +15,7 @@
 
 ## Detours死锁的演示
 
-[SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours)提供了[示例：DeadLock](../../../Source/Demo/DeadLock.c)演示[Detours](https://github.com/microsoft/Detours)死锁的发生与在[SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours)中得到解决。
+[SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours)提供了[示例：DeadLock](../../../Source/Demo/DeadLock.c)，演示[Detours](https://github.com/microsoft/Detours)中死锁如何发生，以及[SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours)如何解决它。
 
 其中一个线程（`HeapUserThread`）不断调用`malloc/free`（等效于`new/delete`）：
 ```C
@@ -64,7 +64,7 @@ while (!g_bStop)
 > [!NOTE]
 > [SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours)会自动更新线程（参考[🔗 技术Wiki：应用内联钩子时自动更新线程](https://github.com/KNSoft/KNSoft.SlimDetours/blob/main/Docs/TechWiki/Update%20Threads%20Automatically%20When%20Applying%20Inline%20Hooks/README.zh-CN.md)），所以不存在[`DetourUpdateThread`](https://github.com/microsoft/Detours/wiki/DetourUpdateThread)这样的函数。
 
-同时执行这2个线程10秒，然后发送停止信号（`g_bStop = TRUE;`）后再次等待10秒，如果超时则大概率发生死锁，将触发断点，可以在调试器中观察这2个线程的调用栈进行确认。例如指定使用[Detours](https://github.com/microsoft/Detours)运行此示例`"Demo.exe -Run DeadLock -Engine=MSDetours"`，以下调用栈可见堆死锁：
+同时运行这两个线程10秒，然后发送停止信号（`g_bStop = TRUE;`）并再次等待10秒。如果等待超时，则大概率发生了死锁，将触发断点，可以在调试器中观察这两个线程的调用栈进行确认。例如指定使用[Detours](https://github.com/microsoft/Detours)运行此示例`"Demo.exe -Run DeadLock -Engine=MSDetours"`，以下调用栈可见堆死锁：
 ```C
 Worker Thread	Demo.exe!HeapUserThread	Demo.exe!heap_alloc_dbg_internal
     [External Code]
@@ -92,16 +92,16 @@ Worker Thread	Demo.exe!SetHookThread	Demo.exe!__acrt_lock
 
 ## 其它挂钩库如何避免这个问题？
 
-[mhook](https://github.com/martona/mhook)使用[`Virtual­Alloc`](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc)分配内存页代替[`Heap­Alloc`](https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapalloc)分配堆内存，是上文末尾提到的一个解决方案。
+[mhook](https://github.com/martona/mhook)使用[`Virtual­Alloc`](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc)分配内存页，代替使用[`Heap­Alloc`](https://learn.microsoft.com/en-us/windows/win32/api/heapapi/nf-heapapi-heapalloc)分配堆内存。这是上文末尾提到的一个解决方案。
 
-[MinHook](https://github.com/TsudaKageyu/minhook)与[SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours)都新创建了一个私有堆供内部使用，避免此问题的同时也节约了内存使用：
+[MinHook](https://github.com/TsudaKageyu/minhook)与[SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours)都创建了一个私有堆供内部使用，避免此问题的同时也节约了内存：
 ```C
 _detour_memory_heap = RtlCreateHeap(HEAP_NO_SERIALIZE | HEAP_GROWABLE, NULL, 0, 0, NULL, NULL);
 ```
 > [!NOTE]
 > [Detours](https://github.com/microsoft/Detours)已有事务机制，所以此堆无需序列化访问。
 
-[MinHook](https://github.com/TsudaKageyu/minhook)在其初始化函数`MH_Initialize`中创建，而[SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours)在首个被调用的内存分配函数中进行一次初始化时创建，故没有也不需要单独的初始化函数。
+[MinHook](https://github.com/TsudaKageyu/minhook)在其初始化函数`MH_Initialize`中创建此堆，而[SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours)在首个被调用的内存分配函数中通过一次性初始化创建。因此，[SlimDetours](https://github.com/KNSoft/KNSoft.SlimDetours)没有也不需要单独的初始化函数。
 
 <br>
 <hr>
