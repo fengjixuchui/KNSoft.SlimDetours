@@ -10,7 +10,7 @@
     <license type="expression">MIT</license>
     <licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>
     <readme>README.md</readme>
-    <description>KNSoft.SlimDetours is an improved Windows API hooking library base on Microsoft Detours.</description>
+    <description>KNSoft.SlimDetours is an improved Windows API hooking library based on Microsoft Detours.</description>
     <tags>native Windows Detours Hook Utility Runtime</tags>
     <repository type="git" url="https://github.com/KNSoft/KNSoft.SlimDetours" />
   </metadata>

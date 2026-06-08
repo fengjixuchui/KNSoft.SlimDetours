@@ -53,9 +53,9 @@ If your project configuration name contains neither "Release" nor "Debug", the [
 
 The usage has been simplified, e.g. the hook only needs one line:
 ```C
-SlimDetoursInlineHook(TRUE, (PVOID*)&g_pfnXxx, Hooked_Xxx);  // Hook
+HRESULT hr = SlimDetoursInlineHook(TRUE, (PVOID*)&g_pfnXxx, Hooked_Xxx);  // Hook
 ...
-SlimDetoursInlineHook(FALSE, (PVOID*)&g_pfnXxx, Hooked_Xxx); // Unhook
+hr = SlimDetoursInlineHook(FALSE, (PVOID*)&g_pfnXxx, Hooked_Xxx); // Unhook
 ```
 For a more simplified API, see [InlineHook.c](https://github.com/KNSoft/KNSoft.SlimDetours/blob/main/Source/KNSoft.SlimDetours/InlineHook.c).
 
@@ -83,7 +83,7 @@ return SlimDetoursTransactionCommit();
 
 ## Compatibility
 
-Project building: support for the latest MSVC build tools and SDKs is the main focus. The code in this project remains backward-compatible with MSVC build tools and GCC, but actual compatibility also depends on the NDK it uses; see [SlimDetours.NDK.inl](./Source/KNSoft.SlimDetours/SlimDetours.NDK.inl). It can also be built together with [ReactOS](https://github.com/reactos/reactos). The default minimum target platform is NT6; specify the `_WIN32_WINNT` macro at compile time to build binaries that target lower NT versions.
+Project building: support for the latest MSVC build tools and SDKs is the main focus. The code in this project remains backward-compatible with MSVC build tools and GCC, but actual compatibility also depends on the NDK it uses; see [SlimDetours.NDK.inl](https://github.com/KNSoft/KNSoft.SlimDetours/blob/main/Source/KNSoft.SlimDetours/SlimDetours.NDK.inl). It can also be built together with [ReactOS](https://github.com/reactos/reactos). The default minimum target platform is NT6; specify the `_WIN32_WINNT` macro at compile time to build binaries that target lower NT versions.
 
 Artifact integration: broadly compatible with MSVC build tools (VS2015 is known to be supported) and different compilation configurations (e.g., `/MD`, `/MT`).
 

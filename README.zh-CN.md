@@ -53,9 +53,9 @@
 
 用法已进行了简化，例如挂钩仅需一行：
 ```C
-SlimDetoursInlineHook(TRUE, (PVOID*)&g_pfnXxx, Hooked_Xxx);  // 挂钩
+HRESULT hr = SlimDetoursInlineHook(TRUE, (PVOID*)&g_pfnXxx, Hooked_Xxx);  // 挂钩
 ...
-SlimDetoursInlineHook(FALSE, (PVOID*)&g_pfnXxx, Hooked_Xxx); // 脱钩
+hr = SlimDetoursInlineHook(FALSE, (PVOID*)&g_pfnXxx, Hooked_Xxx); // 脱钩
 ```
 更多简化的API参考[InlineHook.c](https://github.com/KNSoft/KNSoft.SlimDetours/blob/main/Source/KNSoft.SlimDetours/InlineHook.c)。
 
@@ -83,7 +83,7 @@ return SlimDetoursTransactionCommit();
 
 ## 兼容性
 
-项目构建：主要考虑对最新MSVC构建工具和SDK的支持。本项目代码能向下兼容MSVC构建工具与GCC，但实际兼容性也取决于其使用的NDK，参考[SlimDetours.NDK.inl](./Source/KNSoft.SlimDetours/SlimDetours.NDK.inl)。它也支持随[ReactOS](https://github.com/reactos/reactos)一同构建。默认最低目标平台为NT6，编译时指定`_WIN32_WINNT`宏可以构建面向更低NT版本的二进制。
+项目构建：主要考虑对最新MSVC构建工具和SDK的支持。本项目代码能向下兼容MSVC构建工具与GCC，但实际兼容性也取决于其使用的NDK，参考[SlimDetours.NDK.inl](https://github.com/KNSoft/KNSoft.SlimDetours/blob/main/Source/KNSoft.SlimDetours/SlimDetours.NDK.inl)。它也支持随[ReactOS](https://github.com/reactos/reactos)一同构建。默认最低目标平台为NT6，编译时指定`_WIN32_WINNT`宏可以构建面向更低NT版本的二进制。
 
 制品集成：广泛兼容MSVC构建工具（已知支持VS2015）以及不同编译配置（如`/MD`、`/MT`）。
 

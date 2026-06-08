@@ -4,7 +4,7 @@
  * SlimDetours uses KNSoft.NDK by default, and also support other NDKs.
  * 
  * KNSoft.NDK
- *   Used when macro `_USE_KNSOFT_NDK` is defined, this is the default behavior on offical project.
+ *   Used when macro `_USE_KNSOFT_NDK` is defined, this is the default behavior on official project.
  * 
  * ReactOS NDK
  *   Used when macro `__REACTOS__` is defined, can be built with ReactOS.
