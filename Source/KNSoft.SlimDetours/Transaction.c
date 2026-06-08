@@ -110,10 +110,13 @@ SlimDetoursTransactionAbort(VOID)
     detour_runnable_trampoline_regions();
 
     // Resume any suspended threads.
-    detour_thread_resume(s_phSuspendedThreads, s_ulSuspendedThreadCount);
+    if (s_phSuspendedThreads != NULL)
+    {
+        detour_thread_resume(s_phSuspendedThreads, s_ulSuspendedThreadCount);
+        s_phSuspendedThreads = NULL;
+        s_ulSuspendedThreadCount = 0;
+    }
 
-    s_phSuspendedThreads = NULL;
-    s_ulSuspendedThreadCount = 0;
     s_nPendingThreadId = NULL;
     return HRESULT_FROM_NT(STATUS_SUCCESS);
 }
@@ -259,11 +262,14 @@ _exit:
     detour_runnable_trampoline_regions();
 
     // Resume any suspended threads.
-    detour_thread_resume(s_phSuspendedThreads, s_ulSuspendedThreadCount);
-    s_phSuspendedThreads = NULL;
-    s_ulSuspendedThreadCount = 0;
-    s_nPendingThreadId = NULL;
+    if (s_phSuspendedThreads != NULL)
+    {
+        detour_thread_resume(s_phSuspendedThreads, s_ulSuspendedThreadCount);
+        s_phSuspendedThreads = NULL;
+        s_ulSuspendedThreadCount = 0;
+    }
 
+    s_nPendingThreadId = NULL;
     return HRESULT_FROM_NT(STATUS_SUCCESS);
 }
 
