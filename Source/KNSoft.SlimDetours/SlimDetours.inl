@@ -131,7 +131,7 @@ detour_memory_realloc(
 
 BOOL
 detour_memory_free(
-    _Frees_ptr_ PVOID BaseAddress);
+    _Frees_ptr_opt_ _Post_invalid_ PVOID BaseAddress);
 
 BOOL
 detour_memory_uninitialize(VOID);
